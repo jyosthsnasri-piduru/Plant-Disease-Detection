@@ -5,8 +5,8 @@ import numpy as np
 import tensorflow as tf
 from utils import clean_image, get_prediction, make_results
 
-# Loading the Model and saving to cache using `st.cache_resource` for model caching
-@st.cache_resource(allow_output_mutation=True)
+# ✅ Fixed: Removed invalid argument `allow_output_mutation`
+@st.cache_resource
 def load_model(path):
     # Xception Model
     xception_model = tf.keras.models.Sequential([
@@ -24,12 +24,9 @@ def load_model(path):
 
     # Ensembling the Models
     inputs = tf.keras.Input(shape=(512, 512, 3))
-
     xception_output = xception_model(inputs)
     densenet_output = densenet_model(inputs)
-
     outputs = tf.keras.layers.average([densenet_output, xception_output])
-
     model = tf.keras.Model(inputs=inputs, outputs=outputs)
 
     # Loading the Weights of Model
@@ -39,50 +36,47 @@ def load_model(path):
 
 # Hiding Streamlit Menu and Footer
 hide_streamlit_style = """
-            <style>
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}
-            </style>
-            """
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    </style>
+"""
 st.markdown(hide_streamlit_style, unsafe_allow_html=True) 
 
-# Loading the Model
+# Load the model (weights should be in 'model.h5')
 model = load_model('model.h5')
 
 # Title and Description
-st.title('Plant Disease Detection')
-st.write("Just upload your plant's leaf image and get predictions on whether the plant is healthy or not.")
+st.title('🌿 Plant Disease Detection')
+st.write("Upload your plant's leaf image to detect if it's healthy or affected by a disease.")
 
-# Setting the file types that can be uploaded
+# File uploader
 uploaded_file = st.file_uploader("Choose an image file", type=["png", "jpg", "jpeg"])
 
-# If there is an uploaded file, start making predictions
 if uploaded_file is not None:
     # Display progress and text
     progress = st.text("Crunching image...")
     my_bar = st.progress(0)
-    i = 0
 
-    # Reading the uploaded image
+    # Step 1: Read and display uploaded image
     image = Image.open(io.BytesIO(uploaded_file.read()))
     st.image(np.array(image.resize((700, 400), Image.Resampling.LANCZOS)), caption="Uploaded Image", use_column_width=True)
-    my_bar.progress(i + 20)
+    my_bar.progress(20)
 
-    # Cleaning the image
+    # Step 2: Preprocess image
     image = clean_image(image)
-    my_bar.progress(i + 40)
+    my_bar.progress(40)
 
-    # Making the predictions
+    # Step 3: Run model prediction
     predictions, predictions_arr = get_prediction(model, image)
-    my_bar.progress(i + 70)
+    my_bar.progress(70)
 
-    # Making the results
+    # Step 4: Format result
     result = make_results(predictions, predictions_arr)
 
-    # Removing progress bar and text after prediction is done
+    # Cleanup progress
     progress.empty()
     my_bar.empty()
 
-    # Displaying the results
-    st.write(f"The plant is {result['status']} with a prediction of {result['prediction']}.")
-
+    # Step 5: Display result
+    st.success(f"The plant is **{result['status']}** with a prediction of **{result['prediction']}**.")
